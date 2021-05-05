@@ -7,11 +7,14 @@
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
+from torchvision import transforms
 
 from data_preprocessing import (
-    cut_signal,
-    read_data,
+    EcgDataset,
     max_min_length,
+    read_data,
+    Rescale,
+    ToTensor,
 )
 from models import CnnBaseline
 from utils import (
@@ -27,16 +30,21 @@ from utils import (
 
 if __name__ == '__main__':
     # Read data as dataframe
-    dataset = read_data(zip_path='../data/training.zip')
-    num_signals = len(dataset)
+    data_df = read_data(zip_path='../data/training.zip', data_path='../data/raw_data')
+    num_signals = len(data_df)
     # Compute the max and min signal length
-    max_len, min_len = max_min_length(dataset)
-    # Divide each signal into several min_length size segments
-    dataset = cut_signal(num_signals, dataset, min_len)
-    num_signals = len(dataset)
-
+    max_len, min_len = max_min_length(data_df)
+    # Define the data transform
+    composed = transforms.Compose([Rescale(max_len), ToTensor()])
+    # Create dataset for training
+    dataset = EcgDataset(
+        csv_file='../data/raw_data/training/REFERENCE.csv',
+        root_dir='../data/raw_data/training',
+        transform=composed,
+        normalize=True
+    )
     # Split dataset into train dataset and test dataset
-    train_loader, vld_loader = get_data_loader(dataset, 64)
+    train_loader, vld_loader = get_data_loader(dataset, 8)
     # Get the default device 'cpu' or 'cuda'
     device = get_default_device()
     # Create data loader iterator
@@ -47,9 +55,9 @@ if __name__ == '__main__':
     # Transmit the model to the default device
     to_device(model, device)
 
-    num_epochs = 100
+    num_epochs = 10
     opt_fn = torch.optim.Adam
-    lr = 0.005
+    lr = 1e-5
     # Train the model
     train_losses, vld_losses, metrics = fit(
         num_epochs, lr, model, F.cross_entropy,

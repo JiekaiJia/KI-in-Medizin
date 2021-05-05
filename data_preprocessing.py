@@ -10,17 +10,18 @@ import zipfile
 import numpy as np
 import pandas as pd
 import scipy.io as sio
+from sklearn import preprocessing
 import torch
 from torch.utils.data import Dataset
 
 
-def read_data(zip_path='../data/training.zip'):
+def read_data(zip_path='../data/training.zip', data_path='../data/raw_data'):
     """
+    :param data_path:
     :param zip_path:
     :return:
     """
 
-    data_path = '../data/raw_data'
     if not os.path.exists(data_path):
         zip_file = zipfile.ZipFile(zip_path)
         zip_list = zip_file.namelist()  # Return a list of file names in the archive
@@ -28,6 +29,8 @@ def read_data(zip_path='../data/training.zip'):
             zip_file.extract(f, data_path)  # extracted data to the specific folder
 
         zip_file.close()  # close the zip file
+
+    print(f'the file was unzipped to {data_path}.')
 
     raw_data = []
     label = []
@@ -94,17 +97,20 @@ def cut_signal(num_signals, data_df, wished_length):
 class EcgDataset(Dataset):
     """ECG dataset."""
 
-    def __init__(self, csv_file, root_dir, transform=None):
+    def __init__(self, csv_file, root_dir, transform=None, normalize=True):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
             root_dir (string): Directory with all the signals.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
+            transform (callable, optional): Optional transform to be applied on a sample.
+            normalize(bool): Optional normalization to be applied on a sample.
         """
+        self.normalize = normalize
         self.ecg_frame = pd.read_csv(csv_file)
         self.root_dir = root_dir
         self.transform = transform
+
+        self.classes = ['N', 'A', 'O', '~']
 
     def __len__(self):
         return len(self.ecg_frame)
@@ -116,13 +122,63 @@ class EcgDataset(Dataset):
         signal_name = os.path.join(self.root_dir, self.ecg_frame.iloc[idx, 0])
         tmp = sio.loadmat(f'{signal_name}.mat')  # Import ECG data
         signal = tmp['val'][0]
+        signal = signal.reshape(1, -1)
         label = self.ecg_frame.iloc[idx, 1]
+        target = self.classes.index(label)
+
+        if self.normalize:
+            # Normalize the signal
+            signal = preprocessing.normalize(signal, norm='l2')
 
         if self.transform:
             signal = self.transform(signal)
 
-        sample = {'signal': signal, 'label': label}
+        return signal, target
 
-        return sample
+
+class Rescale(object):
+    """Rescale the image in a sample to a given size.
+
+    Args:
+        output_length (tuple or int): Desired output size. If tuple, output is
+            matched to output_size. If int, smaller of image edges is matched
+            to output_size keeping aspect ratio the same.
+        """
+
+    def __init__(self, output_length):
+        assert isinstance(output_length, (int, tuple))
+        self.output_size = output_length
+
+    def __call__(self, signal):
+
+        h = 1
+        w = signal.shape[0]
+        if isinstance(self.output_size, int):
+            new_h = h
+            new_w = self.output_size
+        else:
+            new_h, new_w = self.output_size
+
+        if w < new_w:
+            # If w is smaller, padding w with 0 util new_w
+            np.pad(signal, (0, new_w-w), 'constant', constant_values=(0, 0))
+        elif w == new_w:
+            pass
+        else:
+            # If w is larger, cut signal to length new_w
+            signal = signal[:new_w]
+
+        return signal
+
+
+class ToTensor(object):
+    """Convert ndarrays in sample to Tensors."""
+
+    def __call__(self, signal):
+        # swap color axis because
+        # numpy image: H x W x C
+        # torch image: C X H X W
+        return torch.from_numpy(signal)
+
 # display_df(pre_data_df, random=True, layers=4)
 # data_df.to_csv('raw_data.csv', sep=' ', index=False)  # save the raw data as .csv file
