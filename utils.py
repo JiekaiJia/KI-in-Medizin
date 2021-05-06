@@ -31,7 +31,7 @@ def split_indices(n, vld_pct, random_state=None):
 
 def get_data_loader(data_set, batch_size):
     """This function generate the batch data for every epoch."""
-    train_indices, vld_indices = split_indices(len(data_set), 0.9, random_state=2021)
+    train_indices, vld_indices = split_indices(len(data_set), 0.2, random_state=2021)
     train_sampler = SubsetRandomSampler(train_indices)
     train_ld = DataLoader(data_set, batch_size, sampler=train_sampler)
     vld_sampler = SubsetRandomSampler(vld_indices)
@@ -105,16 +105,17 @@ def evaluate(model, loss_func, valid_dl, metric=None):
 
 def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
     """"""
-    train_losses, vld_losses, vld_metrics = [], [], []
+    train_losses, train_metrics, vld_losses, vld_metrics = [], [], [], []
     if opt is None:
         opt = torch.optim.SGD
 
-    opt = opt(model.parameters(), lr=lr)
+    opt = opt(model.parameters(), lr=lr, weight_decay=0.05)
     for epoch in range(epochs):
         train_loss = 0
+        train_metric = 0
         model.train()
         for xb, yb in train_dl:  # Training
-            train_loss, _, _ = loss_batch(model, loss_func, xb, yb, opt)
+            train_loss, _, train_metric = loss_batch(model, loss_func, xb, yb, opt, metric)
 
         model.eval()
         result = evaluate(model, loss_func, vld_dl, metric)  # Evaluation
@@ -122,15 +123,16 @@ def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
         vld_losses.append(vld_loss)  # Record the loss & metric
         vld_metrics.append(vld_metric)
         train_losses.append(train_loss)
+        train_metrics.append(train_metric)
 
         # print progress
         if metric is None:
             print(f'Epoch [{epoch+1}/{epochs}], train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}')
         else:
             print(f'Epoch [{epoch+1}/{epochs}], train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}, '
-                  f'{metric.__name__}: {vld_metric:.4f}')
+                  f'validation {metric.__name__}: {vld_metric:.4f}, train {metric.__name__}: {train_metric:.4f}')
 
-    return train_losses, vld_losses, vld_metrics
+    return train_losses, train_metrics, vld_losses, vld_metrics
 
 
 def accuracy(outputs, labels):

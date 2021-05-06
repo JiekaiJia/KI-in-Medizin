@@ -97,7 +97,7 @@ def cut_signal(num_signals, data_df, wished_length):
 class EcgDataset(Dataset):
     """ECG dataset."""
 
-    def __init__(self, csv_file, root_dir, transform=None, normalize=True):
+    def __init__(self, csv_file, root_dir, transform=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -105,11 +105,9 @@ class EcgDataset(Dataset):
             transform (callable, optional): Optional transform to be applied on a sample.
             normalize(bool): Optional normalization to be applied on a sample.
         """
-        self.normalize = normalize
         self.ecg_frame = pd.read_csv(csv_file)
         self.root_dir = root_dir
         self.transform = transform
-
         self.classes = ['N', 'A', 'O', '~']
 
     def __len__(self):
@@ -125,10 +123,6 @@ class EcgDataset(Dataset):
         signal = signal.reshape(1, -1)
         label = self.ecg_frame.iloc[idx, 1]
         target = self.classes.index(label)
-
-        if self.normalize:
-            # Normalize the signal
-            signal = preprocessing.normalize(signal, norm='l2')
 
         if self.transform:
             signal = self.transform(signal)
@@ -152,7 +146,7 @@ class Rescale(object):
     def __call__(self, signal):
 
         h = 1
-        w = signal.shape[0]
+        w = signal.shape[1]
         if isinstance(self.output_size, int):
             new_h = h
             new_w = self.output_size
@@ -161,7 +155,7 @@ class Rescale(object):
 
         if w < new_w:
             # If w is smaller, padding w with 0 util new_w
-            np.pad(signal, (0, new_w-w), 'constant', constant_values=(0, 0))
+            signal = np.pad(signal, ((0, 0), (0, new_w-w)), 'constant', constant_values=(0, 0))
         elif w == new_w:
             pass
         else:
@@ -178,7 +172,8 @@ class ToTensor(object):
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
-        return torch.from_numpy(signal)
+        signal = torch.from_numpy(signal)
+        return signal.float()
 
 # display_df(pre_data_df, random=True, layers=4)
 # data_df.to_csv('raw_data.csv', sep=' ', index=False)  # save the raw data as .csv file
