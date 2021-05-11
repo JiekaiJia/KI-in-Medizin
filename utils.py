@@ -170,3 +170,23 @@ def display_df(my_df, random=False, layers=4):
             plt.plot(my_df.iloc[idx, 0])
             plt.title(case)
         plt.show()
+
+
+@torch.no_grad()
+def get_all_preds(model, loader):
+    all_preds = torch.tensor([])
+    all_labels = torch.tensor([])
+    for batch in loader:
+        signals, labels = batch
+
+        preds = model(signals)
+        all_labels = torch.cat(
+            (all_labels, labels)
+            , dim=0
+        )
+        all_preds = torch.cat(
+            (all_preds, preds)
+            , dim=0
+        )
+        _, predicted = torch.max(all_preds, dim=1)
+    return predicted, all_labels

@@ -4,7 +4,9 @@
 # date: 2021
 # author: AllChooseC
 
+from ecgdetectors import Detectors
 import matplotlib.pyplot as plt
+from sklearn.metrics import classification_report, confusion_matrix
 import torch
 import torch.nn.functional as F
 from torchvision import transforms
@@ -54,7 +56,7 @@ if __name__ == '__main__':
     # Transmit the model to the default device
     to_device(model, device)
 
-    num_epochs = 40
+    num_epochs = 10
     opt_fn = torch.optim.Adam
     lr = 1e-4
     # Train the model
@@ -76,3 +78,7 @@ if __name__ == '__main__':
     plt.ylabel('accuracy')
     plt.title('Accuracy vs. No. of epochs')
     plt.show()
+
+    # save model parameters
+    torch.save(model.state_dict(), './models/cnn1d_params.pkl')
+
