@@ -7,7 +7,7 @@ import torch.nn as nn
 
 
 class CnnBaseline(nn.Module):
-    """Feedforward neural network with 1 hidden layer."""
+    """Feedforward neural network with 8 hidden layer."""
     def __init__(self):
         super().__init__()
         # input 18286
@@ -51,5 +51,40 @@ class CnnBaseline(nn.Module):
     def forward(self, train_x):
         return self.network(train_x)
 
+
+def conv_layer(channels):
+    return nn.Sequential(
+            nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=5, stride=1, padding=2),
+            nn.BatchNorm2d(channels),
+            nn.ReLU(inplace=True),
+    )
+
+
+def last_conv_layer(channels, out_channels):
+    return nn.Sequential(
+            nn.Conv2d(in_channels=channels, out_channels=out_channels, kernel_size=5, stride=1, padding=2),
+            nn.BatchNorm2d(channels),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2)
+    )
+
+
+class ConvBlock(nn.Module):
+    """Feedforward neural network with 4 hidden layer."""
+    def __init__(self, channels=1, size=4):
+        super().__init__()
+        self.channels = channels
+        self.size = size
+        if self.channels == 1:
+            self.out_channels = 64
+        else:
+            self.out_channels = self.channels + 32
+        self.network = nn.ModuleList([conv_layer(self.channels) for _ in range(self.size-1)])
+        self.network.append(last_conv_layer(self.channels, self.out_channels))
+
+    def forward(self, train_x):
+        for layer in self.network:
+            train_x = layer(train_x)
+        return train_x
 
 

@@ -103,7 +103,6 @@ class EcgDataset(Dataset):
             csv_file (string): Path to the csv file with annotations.
             root_dir (string): Directory with all the signals.
             transform (callable, optional): Optional transform to be applied on a sample.
-            normalize(bool): Optional normalization to be applied on a sample.
         """
         self.ecg_frame = pd.read_csv(csv_file)
         self.root_dir = root_dir
@@ -130,50 +129,3 @@ class EcgDataset(Dataset):
         return signal, target
 
 
-class Rescale(object):
-    """Rescale the image in a sample to a given size.
-
-    Args:
-        output_length (tuple or int): Desired output size. If tuple, output is
-            matched to output_size. If int, smaller of image edges is matched
-            to output_size keeping aspect ratio the same.
-        """
-
-    def __init__(self, output_length):
-        assert isinstance(output_length, (int, tuple))
-        self.output_size = output_length
-
-    def __call__(self, signal):
-
-        h = 1
-        w = signal.shape[1]
-        if isinstance(self.output_size, int):
-            new_h = h
-            new_w = self.output_size
-        else:
-            new_h, new_w = self.output_size
-
-        if w < new_w:
-            # If w is smaller, padding w with 0 util new_w
-            signal = np.pad(signal, ((0, 0), (0, new_w-w)), 'constant', constant_values=(0, 0))
-        elif w == new_w:
-            pass
-        else:
-            # If w is larger, cut signal to length new_w
-            signal = signal[:new_w]
-
-        return signal
-
-
-class ToTensor(object):
-    """Convert ndarrays in sample to Tensors."""
-
-    def __call__(self, signal):
-        # swap color axis because
-        # numpy image: H x W x C
-        # torch image: C X H X W
-        signal = torch.from_numpy(signal)
-        return signal.float()
-
-# display_df(pre_data_df, random=True, layers=4)
-# data_df.to_csv('raw_data.csv', sep=' ', index=False)  # save the raw data as .csv file
