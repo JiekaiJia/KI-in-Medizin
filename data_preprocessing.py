@@ -72,28 +72,6 @@ def max_min_length(data_df):
     return max_, min_
 
 
-def cut_signal(num_signals, data_df, wished_length):
-    """
-
-    :param num_signals:
-    :param data_df:
-    :param wished_length:
-    :return:
-    """
-    data_list = []
-    label_list = []
-    # Divide each signal into several min_length size segments
-    for i in range(num_signals):
-        n = len(data_df.iloc[i, 0]) // wished_length
-        rest = len(data_df.iloc[i, 0]) % wished_length
-        for k in range(n):
-            data_list.append(data_df.iloc[i, 0][:wished_length])
-            label_list.append(data_df.iloc[i, 1])
-
-    pre_data_df = pd.DataFrame({'pre_data': data_list, 'label': label_list})
-    return pre_data_df
-
-
 class EcgDataset(Dataset):
     """ECG dataset."""
 

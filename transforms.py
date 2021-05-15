@@ -45,10 +45,10 @@ class Rescale(object):
         assert isinstance(output_length, (int, tuple))
         self.output_size = output_length
 
-    def __call__(self, signal):
+    def __call__(self, data):
 
         h = 1
-        w = signal.shape[1]
+        w = data.shape[1]
         if isinstance(self.output_size, int):
             new_h = h
             new_w = self.output_size
@@ -57,84 +57,52 @@ class Rescale(object):
 
         if w < new_w:
             # If w is smaller, padding w with 0 util new_w
-            signal = np.pad(signal, ((0, 0), (0, new_w-w)), 'constant', constant_values=(0, 0))
+            data = np.pad(data, ((0, 0), (0, new_w - w)), 'constant', constant_values=(0, 0))
         elif w == new_w:
             pass
         else:
             # If w is larger, cut signal to length new_w
-            signal = signal[:new_w]
+            data = data[:, :new_w]
 
-        return signal
+        return data
 
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
-    def __call__(self, signal):
+    def __call__(self, data):
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
-        signal = torch.from_numpy(signal)
-        return signal.float()
+        data = torch.from_numpy(data)
+        return data.float()
 
 
-def upscale(signals, upscale_factor=1):
-    signals = np.repeat(signals, upscale_factor, axis=0)
-    return signals
+class DropoutBursts(object):
+    """Dropout bursts are created by selecting time instants uniformly at random and setting the ECG signal values in
+    a 50ms vicinity of those time instants to 0. Dropout burst hence model short periods of weak signal due to, e.g.,
+    bad contact of ECG leads.
+    """
+
+    def __init__(self, threshold=2, depth=8):
+        self.threshold = threshold
+        self.depth = depth
+
+    def __call__(self, data):
+        shape = data.shape
+        # compensate for lost length due to mask processing
+        noise_shape = [shape[0], shape[1] + self.depth]
+        noise = np.random.normal(0, 1, noise_shape)
+        mask = np.greater(noise, self.threshold)
+        # grow a neighbourhood of True values with at least length depth+1
+        for d in range(self.depth):
+            mask = np.logical_or(mask[:, :-1], mask[:, 1:])
+        output = np.where(mask, np.zeros(shape), data)
+        output = output.reshape(1, -1)
+        return output
 
 
-def random_resample(signals, upscale_factor=1):
-    [n_signals,length] = signals.shape
-    # pulse variation from 60 bpm to 120 bpm, expected 80 bpm
-    new_length = np.random.randint(
-        low=int(length*80/120),
-        high=int(length*80/60),
-        size=[n_signals, upscale_factor]
-    )
-    signals = [np.array(s) for s in signals.tolist()]
-    new_length = [np.array(nl) for nl in new_length.tolist()]
-    sigs = [stretch_squeeze(s,l) for s, nl in zip(signals,new_length) for l in nl]
-    sigs = [fit_tolength(s, length) for s in sigs]
-    sigs = np.array(sigs)
-    return sigs
-
-
-def random_resample_with_mean(signals, meanHRs):
-    [n_signals,length] = signals.shape
-    new_lengths = [np.random.randint(low=int(length*hr/120), high=int(length*hr/60)) for hr in meanHRs]
-    signals = [np.array(s) for s in signals.tolist()]
-    new_lengths = [np.array(nl) for nl in new_lengths]
-    sigs = [stretch_squeeze(s,nl) for s,nl in zip(signals,new_lengths)]
-    sigs = [fit_tolength(s, length) for s in sigs]
-    sigs = np.array(sigs)
-    return sigs
-
-
-def resample_with_mean(signals, meanHRs):
-    [n_signals,length] = signals.shape
-    new_lengths = [int(length*hr/80) for hr in meanHRs]
-    signals = [np.array(s) for s in signals.tolist()]
-    new_lengths = [np.array(nl) for nl in new_lengths]
-    sigs = [stretch_squeeze(s,nl) for s,nl in zip(signals,new_lengths)]
-    sigs = [fit_tolength(s, length) for s in sigs]
-    sigs = np.array(sigs)
-    return sigs
-
-
-def zero_filter(input, threshold=2, depth=8):
-    shape = input.shape
-    # compensate for lost length due to mask processing
-    noise_shape = [shape[0], shape[1] + depth]
-    noise = np.random.normal(0,1,noise_shape)
-    mask = np.greater(noise, threshold)
-    # grow a neighbourhood of True values with at least length depth+1
-    for d in range(depth):
-        mask = np.logical_or(mask[:, :-1], mask[:, 1:])
-    output = np.where(mask, np.zeros(shape), input)
-    return output
-
-
-def stretch_squeeze(source, length):
+def _stretch_squeeze(source, length):
     target = np.zeros([1, length])
     interpol_obj = sc.interpolate.interp1d(np.arange(source.size), source)
     grid = np.linspace(0, source.size - 1, target.size)
@@ -142,12 +110,30 @@ def stretch_squeeze(source, length):
     return result
 
 
-def fit_tolength(source, length):
+def _fit_to_length(source, length):
     target = np.zeros([length])
     w_l = min(source.size, target.size)
-    target[0:w_l] = source[0:w_l]
+    target[0:w_l] = source[0, 0:w_l]
     return target
 
+
+class RandomResample(object):
+    """Assuming a heart rate of 80bpm for all training ECG signals, random resampling emulates a broader range of heart
+    rates by uniformly resampling the ECG signals such that the heart rate of the resampled signal is uniformly
+    distributed on the interval [60, 120]bpm.
+    """
+
+    def __call__(self, data):
+        shape = data.shape
+        # pulse variation from 60 bpm to 120 bpm, expected 80 bpm
+        new_length = np.random.randint(
+            low=int(shape[1] * 80 / 120),
+            high=int(shape[1] * 80 / 60),
+        )
+        sig = _stretch_squeeze(data, new_length)
+        sig = _fit_to_length(sig, shape[1])
+        sig = sig.reshape(1, -1)
+        return sig
 
 # data_df = read_data(zip_path='../data/training.zip', data_path='../data/raw_data')
 # f, t, Sxx = signal.spectrogram(
