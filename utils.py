@@ -30,7 +30,7 @@ def split_indices(n, vld_pct, random_state=None):
 
 def get_data_loader(data_set, batch_size):
     """This function generate the batch data for every epoch."""
-    train_indices, vld_indices = split_indices(len(data_set), 0.2, random_state=2021)
+    train_indices, vld_indices = split_indices(len(data_set), 0.99, random_state=2021)
     train_sampler = SubsetRandomSampler(train_indices)
     train_ld = DataLoader(data_set, batch_size, sampler=train_sampler)
     vld_ld = DataLoader(data_set, batch_size)

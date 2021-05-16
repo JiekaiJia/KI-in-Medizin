@@ -5,6 +5,7 @@
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from utils import EarlyStopping
 
@@ -31,7 +32,7 @@ def evaluate(model, loss_func, valid_dl, metric=None):
     """"""
     with torch.no_grad():
         # Pass each batch through the model
-        results = [loss_batch(model, loss_func, xb, yb, metric=metric) for xb, yb in valid_dl]
+        results = [loss_batch(model, loss_func, xb, yb, metric=metric) for xb, yb in tqdm(valid_dl)]
         losses, nums, metrics = zip(*results)  # Separate losses, counts and metrics
         total = np.sum(nums)  # Total size of the dataset
         avg_loss = np.sum(np.multiply(losses, nums)) / total
@@ -52,10 +53,12 @@ def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
     for epoch in range(epochs):
         train_loss = 0
         train_metric = 0
+        print(f'Start Epoch [{epoch+1}/{epochs}] Training...')
         model.train()
-        for xb, yb in train_dl:  # Training
+        for xb, yb in tqdm(train_dl):  # Training
             train_loss, _, train_metric = loss_batch(model, loss_func, xb, yb, opt, metric)
 
+        print(f'Start Epoch [{epoch+1}/{epochs}] Evaluation...')
         model.eval()
         result = evaluate(model, loss_func, vld_dl, metric)  # Evaluation
         vld_loss, total, vld_metric = result
@@ -66,14 +69,13 @@ def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
 
         early_stopping(vld_metric)
         if early_stopping.early_stop:
-            print("Early stopping")
+            print('\nEarly stopping\n')
             break
 
         # print progress
         if metric is None:
-            print(f'Epoch [{epoch+1}/{epochs}], train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}')
+            print(f'Train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}')
         else:
-            print(f'Epoch [{epoch+1}/{epochs}], train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}, '
-                  f'validation {metric.__name__}: {vld_metric:.4f}, train {metric.__name__}: {train_metric:.4f}')
+            print(f'Train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}, validation {metric.__name__}: {vld_metric:.4f}, train {metric.__name__}: {train_metric:.4f}')
 
     return train_losses, train_metrics, vld_losses, vld_metrics
