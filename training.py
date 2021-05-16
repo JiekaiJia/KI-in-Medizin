@@ -3,6 +3,8 @@
 # date: 2021
 # author: AllChooseC
 
+import os
+
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -44,6 +46,7 @@ def evaluate(model, loss_func, valid_dl, metric=None):
 
 def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
     """"""
+    pre_vld_metric = float('-inf')
     train_losses, train_metrics, vld_losses, vld_metrics = [], [], [], []
     if opt is None:
         opt = torch.optim.SGD
@@ -53,6 +56,7 @@ def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
     for epoch in range(epochs):
         train_loss = 0
         train_metric = 0
+        print('-'*40)
         print(f'Start Epoch [{epoch+1}/{epochs}] Training...')
         model.train()
         for xb, yb in tqdm(train_dl):  # Training
@@ -67,9 +71,20 @@ def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
         train_losses.append(train_loss)
         train_metrics.append(train_metric)
 
+        # Check point
+        if pre_vld_metric < vld_metric:
+            print(f'The validation {metric.__name__} was improved from {pre_vld_metric:.4f} to {vld_metric:.4f}.')
+            pre_vld_metric = vld_metric
+            if not os.path.exists('./models'):
+                os.mkdir('./models')
+            torch.save(model.state_dict(), './models/cnn2018_params.pth')
+        else:
+            print(f"The validation {metric.__name__} wasn't improved.")
+
+        # Earlystopping
         early_stopping(vld_metric)
         if early_stopping.early_stop:
-            print('\nEarly stopping\n')
+            print('Early stopping')
             break
 
         # print progress
@@ -77,5 +92,7 @@ def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
             print(f'Train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}')
         else:
             print(f'Train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}, validation {metric.__name__}: {vld_metric:.4f}, train {metric.__name__}: {train_metric:.4f}')
+        {metric.__name__}
+        print('-'*40)
 
     return train_losses, train_metrics, vld_losses, vld_metrics

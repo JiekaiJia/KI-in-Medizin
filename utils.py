@@ -30,7 +30,7 @@ def split_indices(n, vld_pct, random_state=None):
 
 def get_data_loader(data_set, batch_size):
     """This function generate the batch data for every epoch."""
-    train_indices, vld_indices = split_indices(len(data_set), 0.99, random_state=2021)
+    train_indices, vld_indices = split_indices(len(data_set), 0.2, random_state=2021)
     train_sampler = SubsetRandomSampler(train_indices)
     train_ld = DataLoader(data_set, batch_size, sampler=train_sampler)
     vld_ld = DataLoader(data_set, batch_size)
@@ -92,7 +92,7 @@ def get_all_preds(model, loader):
             , dim=0
         )
         _, predicted = torch.max(all_preds, dim=1)
-    return predicted, all_labels
+    return predicted.cpu(), all_labels.cpu()
 
 
 class EarlyStopping:
@@ -124,4 +124,16 @@ class EarlyStopping:
         if self.counter >= self.patience:
             print('INFO: Early stopping')
             self.early_stop = True
+
+
+def load_model(model, evaluation=True):
+    """Load the saved model."""
+    model.load_state_dict(torch.load('./models/cnn2018_params.pth'))
+    if evaluation:
+        # If the model is used to evaluation, the requires grad should be disabled.
+        for parameter in model.parameters():
+            parameter.requires_grad = False
+        model.eval()
+
+    return model
 

@@ -7,12 +7,11 @@ import csv
 import os
 import zipfile
 
-import numpy as np
 import pandas as pd
 import scipy.io as sio
-from sklearn import preprocessing
 import torch
 from torch.utils.data import Dataset
+from tqdm import tqdm
 
 
 def read_data(zip_path='../data/training.zip', data_path='../data/raw_data'):
@@ -36,14 +35,10 @@ def read_data(zip_path='../data/training.zip', data_path='../data/raw_data'):
     label = []
     with open(f'{data_path}/training/REFERENCE.csv') as csv_file:  # Read data and labels
         csv_reader = csv.reader(csv_file, delimiter=',')
-        line_count = 0
-        for row in csv_reader:
+        for row in tqdm(csv_reader):
             data = sio.loadmat(f'{data_path}/training/{row[0]}.mat')  # Import ECG data
             raw_data.append(data['val'][0])
             label.append(row[1])
-            line_count = line_count + 1
-            if (line_count % 100) == 0:
-                print(f'{line_count}\t data was read.')
 
     data_df = pd.DataFrame({'raw_data': raw_data, 'label': label})  # Write the raw data into dataframe
 

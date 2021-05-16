@@ -3,13 +3,10 @@
 # date: 2021
 # author: AllChooseC
 
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sc
 from scipy import signal
 import torch
-
-from data_preprocessing import read_data
 
 
 class ToSpectrogram(object):

@@ -7,7 +7,6 @@
 from ecgdetectors import Detectors
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.metrics import classification_report, confusion_matrix
 import torch
 import torch.nn.functional as F
 from torchvision import transforms
@@ -17,7 +16,9 @@ from data_preprocessing import (
     max_min_length,
     read_data,
 )
+from metrics import accuracy, f1_score_, report
 from models import CnnBaseline, Cnn2018
+from training import evaluate, fit
 from transforms import (
     DropoutBursts,
     ToSpectrogram,
@@ -29,16 +30,20 @@ from utils import (
     DeviceDataLoader,
     get_data_loader,
     get_default_device,
+    load_model,
     to_device
 )
 from visualization import display_signal
-from metrics import accuracy
-from training import evaluate, fit
 
 
 if __name__ == '__main__':
     # Read data as dataframe
-    data_df = read_data(zip_path='../data/training.zip', data_path='../data/raw_data')
+    data_df = read_data(
+        zip_path='../data/training.zip',
+        data_path='../data/raw_data'
+        # zip_path='./training.zip',
+        # data_path='./'
+    )
     num_signals = len(data_df)
     # Compute the max and min signal length
     max_len, min_len = max_min_length(data_df)
@@ -54,6 +59,8 @@ if __name__ == '__main__':
     dataset = EcgDataset(
         csv_file='../data/raw_data/training/REFERENCE.csv',
         root_dir='../data/raw_data/training',
+        # csv_file='./training/REFERENCE.csv',
+        # root_dir='./training',
         transform=composed,
     )
     # Split dataset into train dataset and test dataset
@@ -70,18 +77,20 @@ if __name__ == '__main__':
     # Transmit the model to the default device
     to_device(model, device)
 
-    num_epochs = 10
+    num_epochs = 500
     opt_fn = torch.optim.Adam
     lr = 1e-4
     # Train the model
     train_losses, train_metrics, vld_losses, vld_metrics = fit(
         num_epochs, lr, model, F.cross_entropy,
-        train_loader, vld_loader, accuracy, opt_fn
+        train_loader, vld_loader, f1_score_, opt_fn
     )
 
-    vld_loss, total, vld_acc = evaluate(model, F.cross_entropy, vld_loader, metric=accuracy)
-    _, _, train_acc = evaluate(model, F.cross_entropy, train_loader, metric=accuracy)
-    print(f'Loss: {vld_loss:.4f}, Accuracy: {vld_acc:.4f}')
+    # Load the best model
+    model = Cnn2018()
+    model = load_model(model, evaluation=True)
+    # Print the best model's results
+    report(model, vld_loader)
 
     # Replace these values with your results
     vld_accuracies = vld_metrics
@@ -93,6 +102,4 @@ if __name__ == '__main__':
     plt.title('Accuracy vs. No. of epochs')
     plt.show()
 
-    # save model parameters
-    # torch.save(model.state_dict(), './models/cnn1d_params.pkl')
 
