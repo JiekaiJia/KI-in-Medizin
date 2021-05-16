@@ -92,7 +92,6 @@ def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
             print(f'Train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}')
         else:
             print(f'Train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}, validation {metric.__name__}: {vld_metric:.4f}, train {metric.__name__}: {train_metric:.4f}')
-        {metric.__name__}
         print('-'*40)
 
     return train_losses, train_metrics, vld_losses, vld_metrics

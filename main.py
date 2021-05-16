@@ -89,6 +89,7 @@ if __name__ == '__main__':
     # Load the best model
     model = Cnn2018()
     model = load_model(model, evaluation=True)
+    to_device(model, device)
     # Print the best model's results
     report(model, vld_loader)
 

@@ -31,3 +31,4 @@ def report(model, vld_loader):
     print(classification_report(targets, preds))
     print('Confusion matrix:')
     print(confusion_matrix(targets, preds))
+

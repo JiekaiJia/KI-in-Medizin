@@ -30,10 +30,11 @@ def split_indices(n, vld_pct, random_state=None):
 
 def get_data_loader(data_set, batch_size):
     """This function generate the batch data for every epoch."""
-    train_indices, vld_indices = split_indices(len(data_set), 0.2, random_state=2021)
+    train_indices, vld_indices = split_indices(len(data_set), 0.99, random_state=2021)
     train_sampler = SubsetRandomSampler(train_indices)
     train_ld = DataLoader(data_set, batch_size, sampler=train_sampler)
-    vld_ld = DataLoader(data_set, batch_size)
+    # vld_sampler = SubsetRandomSampler(vld_indices)
+    vld_ld = DataLoader(data_set, batch_size, sampler=vld_indices)
 
     return train_ld, vld_ld
 
@@ -77,8 +78,9 @@ def get_all_preds(model, loader):
     :param loader:
     :return:
     """
-    all_preds = torch.tensor([])
-    all_labels = torch.tensor([])
+    device = get_default_device()
+    all_preds = to_device(torch.tensor([]), device)
+    all_labels = to_device(torch.tensor([]), device)
     for batch in loader:
         signals, labels = batch
 
@@ -120,6 +122,8 @@ class EarlyStopping:
                 self.best_metric = val_metric
             else:
                 self.counter += 1
+        else:
+            self.counter += 1
         print(f'INFO: Early stopping counter {self.counter} of {self.patience}')
         if self.counter >= self.patience:
             print('INFO: Early stopping')
