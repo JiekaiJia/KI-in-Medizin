@@ -26,6 +26,7 @@ class ToSpectrogram(object):
             Sxx = abs(Sxx)
             mask = Sxx > 0
             Sxx[mask] = np.log(Sxx[mask])
+            # Data dimension [channels, times, frequency]
         return Sxx
 
 
@@ -132,9 +133,10 @@ class RandomResample(object):
         sig = sig.reshape(1, -1)
         return sig
 
+# from data_preprocessing import read_data
 # data_df = read_data(zip_path='../data/training.zip', data_path='../data/raw_data')
 # f, t, Sxx = signal.spectrogram(
-#     data_df.iloc[200, 0],
+#     data_df.iloc[1000, 0],
 #     fs=300,
 #     nperseg=64,
 #     noverlap=32

@@ -100,5 +100,3 @@ class EcgDataset(Dataset):
             signal = self.transform(signal)
 
         return signal, target
-
-

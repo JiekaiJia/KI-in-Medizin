@@ -9,14 +9,16 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from utils import EarlyStopping
+from utils import EarlyStopping, class_penalty
+
+class_distribution = [59.68, 8.68, 28.55, 3.08]
 
 
 def loss_batch(model, loss_func, xb, yb, opt=None, metric=None):
     """Calculates the loss and metric value for a batch of data,
     and optionally performs gradient descent if an optimizer is provided."""
     preds = model(xb)
-    loss = loss_func(preds, yb)
+    loss = loss_func(preds, yb, weight=class_penalty(class_distribution, class_penalty=0.2))
 
     if opt is not None:
         loss.backward()  # Compute gradients

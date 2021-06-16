@@ -31,7 +31,7 @@ from utils import (
     get_data_loader,
     get_default_device,
     load_model,
-    to_device
+    to_device,
 )
 from visualization import display_signal
 
@@ -45,12 +45,23 @@ if __name__ == '__main__':
         # data_path='./'
     )
     num_signals = len(data_df)
+    labels = data_df['label'].tolist()
+    onehot_labels = np.zeros((num_signals, 4))
+    for i, label in enumerate(labels):
+        if label == 'N':
+            onehot_labels[i][0] = 1
+        elif label == 'A':
+            onehot_labels[i][1] = 1
+        elif label == 'O':
+            onehot_labels[i][2] = 1
+        else:
+            onehot_labels[i][3] = 1
     # Compute the max and min signal length
     max_len, min_len = max_min_length(data_df)
     # Define the data transform
     composed = transforms.Compose([
-        DropoutBursts(threshold=2, depth=8),
-        RandomResample(),
+        # DropoutBursts(threshold=2, depth=8),
+        # RandomResample(),
         Rescale(max_len),
         ToSpectrogram(nperseg=64, noverlap=32),
         ToTensor()
@@ -64,7 +75,9 @@ if __name__ == '__main__':
         transform=composed,
     )
     # Split dataset into train dataset and test dataset
-    train_loader, vld_loader = get_data_loader(dataset, 20)
+    compensation_factor = 0.2
+    batch_size = 20
+    train_loader, vld_loader = get_data_loader(dataset, batch_size, onehot_labels, compensation_factor)
     # Get the default device 'cpu' or 'cuda'
     device = get_default_device()
     # Create data loader iterator
@@ -79,7 +92,7 @@ if __name__ == '__main__':
 
     num_epochs = 500
     opt_fn = torch.optim.Adam
-    lr = 1e-4
+    lr = 1e-3
     # Train the model
     train_losses, train_metrics, vld_losses, vld_metrics = fit(
         num_epochs, lr, model, F.cross_entropy,
@@ -102,5 +115,3 @@ if __name__ == '__main__':
     plt.ylabel('accuracy')
     plt.title('Accuracy vs. No. of epochs')
     plt.show()
-
-

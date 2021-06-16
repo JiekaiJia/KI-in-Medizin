@@ -8,8 +8,10 @@ import torch
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 
+class_distribution = [59.68, 8.68, 28.55, 3.08]
 
-def split_indices(n, vld_pct, random_state=None):
+
+def split_indices(n, vld_pct, labels, compensation_factor, random_state=None):
     """This function is used to split the data into train and validation.
 
     Args:
@@ -25,12 +27,25 @@ def split_indices(n, vld_pct, random_state=None):
         np.random.seed(random_state)  # Set the random seed(for reproducibility)
     idxs = np.random.permutation(n)  # Create random permutation of 0 to n-1
 
-    return idxs[n_vld:], idxs[:n_vld]  # Pick the first n_vld indices for validation set
+    train_set = idxs[n_vld:]
+    masks = [labels[train_set, i].astype(bool) for i in range(labels.shape[1])]
+    sets = [train_set[mask] for mask in masks]
+    lst = []
+    for idx, set_ in enumerate(sets):
+        scale = int(100 * compensation_factor / class_distribution[idx]) + 1
+        set_ = np.tile(set_, scale)
+        set_ = set_.reshape([-1, 1])
+        lst.append(set_)
+    train_set = np.vstack(lst)
+    train_set = train_set.squeeze()
+    np.random.shuffle(train_set)
+
+    return train_set, idxs[:n_vld]  # Pick the first n_vld indices for validation set
 
 
-def get_data_loader(data_set, batch_size):
+def get_data_loader(data_set, batch_size, onehot_labels, compensation_factor):
     """This function generate the batch data for every epoch."""
-    train_indices, vld_indices = split_indices(len(data_set), 0.99, random_state=2021)
+    train_indices, vld_indices = split_indices(len(data_set), 0.2, onehot_labels, compensation_factor, random_state=2021)
     train_sampler = SubsetRandomSampler(train_indices)
     train_ld = DataLoader(data_set, batch_size, sampler=train_sampler)
     # vld_sampler = SubsetRandomSampler(vld_indices)
@@ -140,4 +155,49 @@ def load_model(model, evaluation=True):
         model.eval()
 
     return model
+
+
+def get_length(data):
+    # data shape [b, c, t, f]
+    shape = list(data.shape)
+    maps, _ = torch.max(torch.abs(data), 1)
+    # data shape [b, t, f]
+    used = torch.sign(maps)
+    used = used.int()
+    t_range = torch.arange(0, shape[2]).unsqueeze(1)
+    ranged = t_range * used
+    length, _ = torch.max(ranged, 1)
+    # data shape [b, f]
+    length, _ = torch.max(length, 1)
+    # data shape [b]
+    length = length + 1
+    return length
+
+
+def set_zeros(data, length):
+    shape = list(data.shape)
+    # generate data shape matrix with time range with padding
+    r = torch.arange(0, shape[1])
+    r = torch.unsqueeze(r, 0)
+    r = torch.unsqueeze(r, 2)
+    r = r.repeat(shape[0], 1, shape[2])
+    # generate data shape matrix with time range without padding
+    l = torch.unsqueeze(length, 1)
+    l = torch.unsqueeze(l, 2)
+    l = l.repeat(1, shape[1], shape[2])
+    # when col_n smaller than length mask entry is true
+    mask = torch.lt(r, l)
+    # when col_n larger than length, set input to zero
+    output = torch.where(mask, data, torch.zeros_like(data))
+    return output
+
+
+def class_penalty(class_distribution, class_penalty=0.2):
+    eq_w = [1 for _ in class_distribution]
+    occ_w = [100/r for r in class_distribution]
+    c = class_penalty
+    weights = [[e * (1-c) + o * c for e,o in zip(eq_w, occ_w)]]
+    class_weights = torch.Tensor(weights)
+
+    return class_weights
 

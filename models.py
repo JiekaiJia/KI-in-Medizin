@@ -1,9 +1,11 @@
 """This module provides the implemented models."""
-#  -*- coding: utf-8 -*-
+#  -*- coding: utorch-8 -*-
 # date: 2021
 # author: AllChooseC
 
+import torch
 import torch.nn as nn
+from utils import get_length, set_zeros
 
 
 class CnnBaseline(nn.Module):
@@ -52,95 +54,105 @@ class CnnBaseline(nn.Module):
         return self.network(train_x)
 
 
-def conv_layer(channels, first=False, last=False, stretch=False):
-    """Basic convolutional layer unit."""
-    if first:
-        return nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=channels, kernel_size=5, stride=1, padding=2),
-            nn.BatchNorm2d(channels),
-            nn.ReLU(inplace=True),
-            # nn.Dropout(p=0.15),
-        )
-    elif last:
-        return nn.Sequential(
-            nn.Conv2d(in_channels=channels, out_channels=channels + 32, kernel_size=5, stride=1, padding=2),
-            nn.BatchNorm2d(channels + 32),
-            nn.ReLU(inplace=True),
-            # nn.Dropout(p=0.15),
-            nn.MaxPool2d(kernel_size=2)
-        )
-    elif stretch:
-        return nn.Sequential(
-            nn.Conv2d(in_channels=channels, out_channels=channels + 32, kernel_size=5, stride=1, padding=2),
-            nn.BatchNorm2d(channels + 32),
-            nn.ReLU(inplace=True),
-            # nn.Dropout(p=0.15),
-            nn.MaxPool2d(kernel_size=2, padding=1)
-        )
-    else:
-        return nn.Sequential(
-            nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=5, stride=1, padding=2),
-            nn.BatchNorm2d(channels),
-            nn.ReLU(inplace=True),
-            # nn.Dropout(p=0.15),
-        )
+def conv2d_block(inputs_shape, length, kernel_size=5, out_channels=None, growth=32, depth=4, strides_end=2, max_pooling=1, drop_rate=0.15):
 
+    # inherit layer-width from input
+    in_channels = 1
+    if strides_end is None:
+        strides_end = 2
+    if out_channels is None:
+        in_channels = inputs_shape[1]
+        out_channels = inputs_shape[1]
 
-class ConvBlock(nn.Module):
-    """Feedforward neural network with 4 hidden layer."""
-    def __init__(self, channels=1, size=4, first=False):
-        super().__init__()
-        if channels == 1:
-            self.channels = 32
-        else:
-            self.channels = channels
-        self.size = size
-        self.first = first
+    conv = []
+    strides = 1
+    max_pooling_en = False
 
-        if first:
-            self.block = nn.ModuleList([conv_layer(self.channels, first=self.first)])
-            self.block.extend([conv_layer(self.channels) for _ in range(self.size-2)])
-        else:
-            self.block = nn.ModuleList([conv_layer(self.channels) for _ in range(self.size - 1)])
-        self.block.append(conv_layer(self.channels, stretch=True))
+    for d in range(depth):
+        if d != 0:
+            in_channels = out_channels
+        if d == depth-1:
+            out_channels = out_channels + growth
+            if max_pooling:
+                max_pooling_en = True
+            else:
+                strides = strides_end
 
-    def forward(self, train_x):
-        for layer in self.block:
-            train_x = layer(train_x)
-        return train_x
+        conv.append(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=strides, padding=2))
+        conv.append(nn.BatchNorm2d(out_channels))
+        conv.append(nn.ReLU(inplace=True))
+        if max_pooling_en:
+            if max_pooling == 1:
+                conv.append(nn.MaxPool2d(kernel_size=strides_end, padding=1))
+            else:
+                conv.append(nn.MaxPool2d(kernel_size=strides_end))
+        # conv.append(nn.Dropout(p=drop_rate))
 
+    block = nn.Sequential(*conv)
 
-def helper(i):
-    """Helper function that computes the input of convolutional block."""
-    return min(max(1, 32*i), 32) + 32 * i
+    length = torch.div((length + 1), 2)
+
+    return block, length
 
 
 class Cnn2018(nn.Module):
-    """The module consists of 6 convolutional blocks, a average pooling, a full connection layer and a softmax layer."""
+
     def __init__(self):
         super().__init__()
-        # 6 convolutional blocks
-        self.network = nn.ModuleList([ConvBlock(channels=1, size=4, first=True)])
-        self.network.extend([ConvBlock(helper(i+1), 4) for i in range(4)])
-        self.network.extend([conv_layer(helper(5)) for _ in range(3)])
-        self.network.append(conv_layer(helper(5), last=True))
-        # a average pooling that compute the average across time
-        self.network.append(nn.AdaptiveAvgPool2d(1))
-        # a full connection layer
-        self.network.append(nn.Flatten())
-        # self.network.append(nn.Dropout(p=0.15))
-        self.network.append(nn.Linear(224, 4))
-        # a softmax layer
-        self.network.append(nn.Softmax(dim=1))
+        self.n_conv_blocks = 6
+        self.out_channels_first = 32
+        self.kernel_size = 5
+        self.growth_block_end = 32
+        self.strides_block_end = 2
+        self.max_pooling = 2
+        self.drop_rate = 0.15
+        self.n_classes = 4
+
+        self.linear1 = nn.Linear(224, self.n_classes)
 
     def forward(self, train_x):
-        for layer in self.network:
-            train_x = layer(train_x)
-        return train_x
+        # Compute the original data length
+        length = get_length(train_x)
+        for i in range(self.n_conv_blocks):
+            if i == 0:
+                self.max_pooling = 2
+                out_channels = self.out_channels_first
+            else:
+                out_channels = None
+            if i == self.n_conv_blocks - 1:
+                self.max_pooling = 1
+            inputs_shape = list(train_x.shape)
+            model, length = conv2d_block(
+                    inputs_shape=inputs_shape,
+                    length=length,
+                    kernel_size=self.kernel_size,
+                    out_channels=out_channels,
+                    growth=self.growth_block_end,
+                    strides_end=self.strides_block_end,
+                    max_pooling=self.max_pooling,
+                    drop_rate=self.drop_rate
+            )
+            train_x = model(train_x)
 
+        [_, c_s, t_s, f_s] = list(train_x.shape)
+        feature_seq = torch.reshape(train_x, [-1, t_s, f_s * c_s])
+        # as we use affine functions our zero padded datasets
+        # are now padded with the bias of the previous layers
+        # in order to get the mean of only meaningful data out
+        # set the zero-padding part back to zero again
+        data = set_zeros(feature_seq, length)
+        # as we have zero padded data,
+        # reduce_mean would result into too small values for most sequences
+        # therefore use reduce_sum and divide by actual length instead
+        data = torch.sum(data, dim=1)
+        length = torch.unsqueeze(length, 1)
+        features = torch.div(data, length.float())
 
-# from torchsummary import summary
-# #
+        preds = nn.Softmax(dim=1)(self.linear1(features))
+
+        return preds
+
+from torchsummary import summary
 # model = Cnn2018()
-# # model = last_conv_layer(1,4)
+# model = last_conv_layer(1,4)
 # summary(model, input_size=(1, 570, 33), batch_size=-1)
