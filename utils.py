@@ -10,7 +10,6 @@ from torch.utils.data.sampler import SubsetRandomSampler
 
 class_distribution = [59.68, 8.68, 28.55, 3.08]
 
-
 def split_indices(n, vld_pct, labels, compensation_factor, random_state=None):
     """This function is used to split the data into train and validation.
 
@@ -157,6 +156,9 @@ def load_model(model, evaluation=True):
     return model
 
 
+device = get_default_device()
+
+
 def get_length(data):
     # data shape [b, c, t, f]
     shape = list(data.shape)
@@ -164,7 +166,7 @@ def get_length(data):
     # data shape [b, t, f]
     used = torch.sign(maps)
     used = used.int()
-    t_range = torch.arange(0, shape[2]).unsqueeze(1)
+    t_range = torch.arange(0, shape[2], device=device).unsqueeze(1)
     ranged = t_range * used
     length, _ = torch.max(ranged, 1)
     # data shape [b, f]
@@ -177,7 +179,7 @@ def get_length(data):
 def set_zeros(data, length):
     shape = list(data.shape)
     # generate data shape matrix with time range with padding
-    r = torch.arange(0, shape[1])
+    r = torch.arange(0, shape[1], device=device)
     r = torch.unsqueeze(r, 0)
     r = torch.unsqueeze(r, 2)
     r = r.repeat(shape[0], 1, shape[2])
@@ -199,5 +201,5 @@ def class_penalty(class_distribution, class_penalty=0.2):
     weights = [[e * (1-c) + o * c for e,o in zip(eq_w, occ_w)]]
     class_weights = torch.Tensor(weights)
 
-    return class_weights
+    return class_weights.to(device)
 

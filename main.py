@@ -32,6 +32,7 @@ from utils import (
     get_default_device,
     load_model,
     to_device,
+split_indices
 )
 from visualization import display_signal
 
@@ -68,10 +69,10 @@ if __name__ == '__main__':
     ])
     # Create dataset for training
     dataset = EcgDataset(
-        csv_file='../data/raw_data/training/REFERENCE.csv',
-        root_dir='../data/raw_data/training',
-        # csv_file='./training/REFERENCE.csv',
-        # root_dir='./training',
+        # csv_file='../data/raw_data/training/REFERENCE.csv',
+        # root_dir='../data/raw_data/training',
+        csv_file='./training/REFERENCE.csv',
+        root_dir='./training',
         transform=composed,
     )
     # Split dataset into train dataset and test dataset

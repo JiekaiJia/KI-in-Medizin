@@ -21,15 +21,15 @@ def read_data(zip_path='../data/training.zip', data_path='../data/raw_data'):
     :return:
     """
 
-    if not os.path.exists(data_path):
-        zip_file = zipfile.ZipFile(zip_path)
-        zip_list = zip_file.namelist()  # Return a list of file names in the archive
-        for f in zip_list:
-            zip_file.extract(f, data_path)  # extracted data to the specific folder
+    #if not os.path.exists(data_path):
+        #zip_file = zipfile.ZipFile(zip_path)
+        #zip_list = zip_file.namelist()  # Return a list of file names in the archive
+        #for f in zip_list:
+            #zip_file.extract(f, data_path)  # extracted data to the specific folder
 
-        zip_file.close()  # close the zip file
+        #zip_file.close()  # close the zip file
 
-    print(f'the file was unzipped to {data_path}.')
+    #print(f'the file was unzipped to {data_path}.')
 
     raw_data = []
     label = []

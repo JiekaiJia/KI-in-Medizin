@@ -5,7 +5,9 @@
 
 import torch
 import torch.nn as nn
-from utils import get_length, set_zeros
+from utils import get_length, set_zeros, get_default_device
+
+device = get_default_device()
 
 
 class CnnBaseline(nn.Module):
@@ -54,15 +56,15 @@ class CnnBaseline(nn.Module):
         return self.network(train_x)
 
 
-def conv2d_block(inputs_shape, length, kernel_size=5, out_channels=None, growth=32, depth=4, strides_end=2, max_pooling=1, drop_rate=0.15):
+def conv2d_block(input_channel, kernel_size=5, out_channels=None, growth=32, depth=4, strides_end=2, max_pooling=1, drop_rate=0.15):
 
     # inherit layer-width from input
     in_channels = 1
     if strides_end is None:
         strides_end = 2
     if out_channels is None:
-        in_channels = inputs_shape[1]
-        out_channels = inputs_shape[1]
+        in_channels = input_channel
+        out_channels = input_channel
 
     conv = []
     strides = 1
@@ -89,10 +91,9 @@ def conv2d_block(inputs_shape, length, kernel_size=5, out_channels=None, growth=
         # conv.append(nn.Dropout(p=drop_rate))
 
     block = nn.Sequential(*conv)
+    block.to(device)
 
-    length = torch.div((length + 1), 2)
-
-    return block, length
+    return block
 
 
 class Cnn2018(nn.Module):
@@ -108,31 +109,15 @@ class Cnn2018(nn.Module):
         self.drop_rate = 0.15
         self.n_classes = 4
 
+        self.conv = self.make_model()
         self.linear1 = nn.Linear(224, self.n_classes)
 
     def forward(self, train_x):
         # Compute the original data length
         length = get_length(train_x)
-        for i in range(self.n_conv_blocks):
-            if i == 0:
-                self.max_pooling = 2
-                out_channels = self.out_channels_first
-            else:
-                out_channels = None
-            if i == self.n_conv_blocks - 1:
-                self.max_pooling = 1
-            inputs_shape = list(train_x.shape)
-            model, length = conv2d_block(
-                    inputs_shape=inputs_shape,
-                    length=length,
-                    kernel_size=self.kernel_size,
-                    out_channels=out_channels,
-                    growth=self.growth_block_end,
-                    strides_end=self.strides_block_end,
-                    max_pooling=self.max_pooling,
-                    drop_rate=self.drop_rate
-            )
-            train_x = model(train_x)
+        for conv in self.conv:
+            train_x = conv(train_x)
+            length = torch.div((length + 1), 2)
 
         [_, c_s, t_s, f_s] = list(train_x.shape)
         feature_seq = torch.reshape(train_x, [-1, t_s, f_s * c_s])
@@ -152,7 +137,35 @@ class Cnn2018(nn.Module):
 
         return preds
 
-from torchsummary import summary
+    def make_model(self):
+        # Compute the original data length
+        models = nn.ModuleList([])
+        input_channel = 1
+        for i in range(self.n_conv_blocks):
+            if i == 0:
+                self.max_pooling = 2
+                out_channels = self.out_channels_first
+            else:
+                input_channel += self.growth_block_end
+                out_channels = None
+            if i == self.n_conv_blocks - 1:
+                self.max_pooling = 1
+            model = conv2d_block(
+                    input_channel=input_channel,
+                    kernel_size=self.kernel_size,
+                    out_channels=out_channels,
+                    growth=self.growth_block_end,
+                    strides_end=self.strides_block_end,
+                    max_pooling=self.max_pooling,
+                    drop_rate=self.drop_rate
+            )
+            if i == 0:
+                input_channel = out_channels
+            models.append(model)
+
+        return models
+
+
+# from torchsummary import summary
 # model = Cnn2018()
-# model = last_conv_layer(1,4)
 # summary(model, input_size=(1, 570, 33), batch_size=-1)
