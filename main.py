@@ -69,21 +69,24 @@ if __name__ == '__main__':
     ])
     # Create dataset for training
     dataset = EcgDataset(
-        # csv_file='../data/raw_data/training/REFERENCE.csv',
-        # root_dir='../data/raw_data/training',
-        csv_file='./training/REFERENCE.csv',
-        root_dir='./training',
+        csv_file='../data/raw_data/training/REFERENCE.csv',
+        root_dir='../data/raw_data/training',
+        # csv_file='./training/REFERENCE.csv',
+        # root_dir='./training',
         transform=composed,
     )
     # Split dataset into train dataset and test dataset
     compensation_factor = 0.2
     batch_size = 20
-    train_loader, vld_loader = get_data_loader(dataset, batch_size, onehot_labels, compensation_factor)
+    train_loaders, vld_loaders = get_data_loader(dataset, batch_size, onehot_labels, compensation_factor)
     # Get the default device 'cpu' or 'cuda'
     device = get_default_device()
     # Create data loader iterator
-    train_loader = DeviceDataLoader(train_loader, device)
-    vld_loader = DeviceDataLoader(vld_loader, device)
+    train_loaders_ = []
+    vld_loaders_ = []
+    for train_loader, vld_loader in zip(train_loaders, vld_loaders):
+        train_loaders_.append(DeviceDataLoader(train_loader, device))
+        vld_loaders_.append(DeviceDataLoader(vld_loader, device))
     # display_signal(train_loader)
     # Initialize the model
     # model = CnnBaseline()
@@ -95,24 +98,27 @@ if __name__ == '__main__':
     opt_fn = torch.optim.Adam
     lr = 1e-3
     # Train the model
-    train_losses, train_metrics, vld_losses, vld_metrics = fit(
-        num_epochs, lr, model, F.cross_entropy,
-        train_loader, vld_loader, f1_score_, opt_fn
-    )
+    trial = 0
+    for train_loader, vld_loader in zip(train_loaders_, vld_loaders_):
+        trial += 1
+        train_losses, train_metrics, vld_losses, vld_metrics = fit(
+            num_epochs, trial, lr, model, F.cross_entropy,
+            train_loader, vld_loader, f1_score_, opt_fn
+        )
 
-    # Load the best model
-    model = Cnn2018()
-    model = load_model(model, evaluation=True)
-    to_device(model, device)
-    # Print the best model's results
-    report(model, vld_loader)
+        # Load the best model
+        model = Cnn2018()
+        model = load_model(model, evaluation=True)
+        to_device(model, device)
+        # Print the best model's results
+        report(model, vld_loader)
 
-    # Replace these values with your results
-    vld_accuracies = vld_metrics
-    train_accuracies = train_metrics
-    plt.plot(vld_accuracies, '-x')
-    plt.plot(train_accuracies, '-o')
-    plt.xlabel('epoch')
-    plt.ylabel('accuracy')
-    plt.title('Accuracy vs. No. of epochs')
-    plt.show()
+        # # Replace these values with your results
+        # vld_accuracies = vld_metrics
+        # train_accuracies = train_metrics
+        # plt.plot(vld_accuracies, '-x')
+        # plt.plot(train_accuracies, '-o')
+        # plt.xlabel('epoch')
+        # plt.ylabel('accuracy')
+        # plt.title('Accuracy vs. No. of epochs')
+        # plt.show()

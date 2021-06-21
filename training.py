@@ -6,6 +6,7 @@
 import os
 
 import numpy as np
+from tensorboardX import SummaryWriter
 import torch
 from tqdm import tqdm
 
@@ -46,7 +47,7 @@ def evaluate(model, loss_func, valid_dl, metric=None):
     return avg_loss, total, avg_metric
 
 
-def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
+def fit(epochs, trial, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
     """"""
     pre_vld_metric = float('-inf')
     train_losses, train_metrics, vld_losses, vld_metrics = [], [], [], []
@@ -54,7 +55,7 @@ def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
         opt = torch.optim.SGD
     opt = opt(model.parameters(), lr=lr)
 
-    early_stopping = EarlyStopping(patience=100, mode='max')
+    early_stopping = EarlyStopping(patience=300, mode='max')
     for epoch in range(epochs):
         train_loss = 0
         train_metric = 0
@@ -73,13 +74,20 @@ def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
         train_losses.append(train_loss)
         train_metrics.append(train_metric)
 
+        # Write results into file.
+        with SummaryWriter(f'results/Fold_{trial}') as writer:
+            writer.add_scalar('train_loss', train_loss, global_step=epoch)
+            writer.add_scalar('train_metric', train_metric, global_step=epoch)
+            writer.add_scalar('vld_loss', vld_loss, global_step=epoch)
+            writer.add_scalar('vld_metric', vld_metric, global_step=epoch)
+
         # Check point
         if pre_vld_metric < vld_metric:
             print(f'The validation {metric.__name__} was improved from {pre_vld_metric:.4f} to {vld_metric:.4f}.')
             pre_vld_metric = vld_metric
             if not os.path.exists('./models'):
                 os.mkdir('./models')
-            torch.save(model.state_dict(), './models/cnn2018_params.pth')
+            torch.save(model.state_dict(), f'./models/cnn2018_params_{trial}.pth')
         else:
             print(f"The validation {metric.__name__} wasn't improved.")
 
@@ -93,7 +101,7 @@ def fit(epochs, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=None):
         if metric is None:
             print(f'Train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}')
         else:
-            print(f'Train_loss: {train_loss:.4f}, validation_loss: {vld_loss:.4f}, validation {metric.__name__}: {vld_metric:.4f}, train {metric.__name__}: {train_metric:.4f}')
+            print(f'Train_loss: {train_loss:.4f}, train {metric.__name__}: {train_metric:.4f}, validation_loss: {vld_loss:.4f}, validation {metric.__name__}: {vld_metric:.4f}')
         print('-'*40)
 
     return train_losses, train_metrics, vld_losses, vld_metrics

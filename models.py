@@ -166,6 +166,7 @@ class Cnn2018(nn.Module):
         return models
 
 
-# from torchsummary import summary
-# model = Cnn2018()
-# summary(model, input_size=(1, 570, 33), batch_size=-1)
+if __name__ == '__main__':
+    from torchsummary import summary
+    model = Cnn2018()
+    summary(model, input_size=(1, 570, 33), batch_size=-1)

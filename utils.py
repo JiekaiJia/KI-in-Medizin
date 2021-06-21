@@ -10,6 +10,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 
 class_distribution = [59.68, 8.68, 28.55, 3.08]
 
+
 def split_indices(n, vld_pct, labels, compensation_factor, random_state=None):
     """This function is used to split the data into train and validation.
 
@@ -25,32 +26,42 @@ def split_indices(n, vld_pct, labels, compensation_factor, random_state=None):
     if random_state:
         np.random.seed(random_state)  # Set the random seed(for reproducibility)
     idxs = np.random.permutation(n)  # Create random permutation of 0 to n-1
+    split_sets = [idxs[:n_vld], idxs[n_vld:2*n_vld], idxs[2*n_vld:3*n_vld], idxs[3*n_vld:4*n_vld], idxs[4*n_vld:]]
+    train_sets = []
+    vld_sets = []
 
-    train_set = idxs[n_vld:]
-    masks = [labels[train_set, i].astype(bool) for i in range(labels.shape[1])]
-    sets = [train_set[mask] for mask in masks]
-    lst = []
-    for idx, set_ in enumerate(sets):
-        scale = int(100 * compensation_factor / class_distribution[idx]) + 1
-        set_ = np.tile(set_, scale)
-        set_ = set_.reshape([-1, 1])
-        lst.append(set_)
-    train_set = np.vstack(lst)
-    train_set = train_set.squeeze()
-    np.random.shuffle(train_set)
+    for k in range(5):
+        train_set = np.concatenate((split_sets[k], split_sets[(k+1)%5], split_sets[(k+2)%5], split_sets[(k+3)%5]))
+        masks = [labels[train_set, i].astype(bool) for i in range(labels.shape[1])]
+        sets = [train_set[mask] for mask in masks]
+        lst = []
+        for idx, set_ in enumerate(sets):
+            scale = int(100 * compensation_factor / class_distribution[idx]) + 1
+            set_ = np.tile(set_, scale)
+            set_ = set_.reshape([-1, 1])
+            lst.append(set_)
+        train_set = np.vstack(lst)
+        train_set = train_set.squeeze()
+        np.random.shuffle(train_set)
+        train_sets.append(train_set)
+        vld_sets.append(split_sets[k-1])
 
-    return train_set, idxs[:n_vld]  # Pick the first n_vld indices for validation set
+    return train_sets, vld_sets  # Pick the first n_vld indices for validation set
 
 
 def get_data_loader(data_set, batch_size, onehot_labels, compensation_factor):
     """This function generate the batch data for every epoch."""
     train_indices, vld_indices = split_indices(len(data_set), 0.2, onehot_labels, compensation_factor, random_state=2021)
-    train_sampler = SubsetRandomSampler(train_indices)
-    train_ld = DataLoader(data_set, batch_size, sampler=train_sampler)
-    # vld_sampler = SubsetRandomSampler(vld_indices)
-    vld_ld = DataLoader(data_set, batch_size, sampler=vld_indices)
+    train_lds = []
+    vld_lds = []
+    for i in range(5):
+        train_sampler = SubsetRandomSampler(train_indices[i])
+        train_ld = DataLoader(data_set, batch_size, sampler=train_sampler)
+        vld_ld = DataLoader(data_set, batch_size, sampler=vld_indices[i])
+        train_lds.append(train_ld)
+        vld_lds.append(vld_ld)
 
-    return train_ld, vld_ld
+    return train_lds, vld_lds
 
 
 def get_default_device():
