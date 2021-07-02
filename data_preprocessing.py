@@ -33,10 +33,10 @@ def read_data(zip_path='../data/training.zip', data_path='../data/raw_data'):
 
     raw_data = []
     label = []
-    with open(f'{data_path}/training/REFERENCE.csv') as csv_file:  # Read data and labels
+    with open(f'{data_path}/REFERENCE.csv') as csv_file:  # Read data and labels
         csv_reader = csv.reader(csv_file, delimiter=',')
         for row in tqdm(csv_reader):
-            data = sio.loadmat(f'{data_path}/training/{row[0]}.mat')  # Import ECG data
+            data = sio.loadmat(f'{data_path}/{row[0]}.mat')  # Import ECG data
             raw_data.append(data['val'][0])
             label.append(row[1])
 
@@ -67,19 +67,51 @@ def max_min_length(data_df):
     return max_, min_
 
 
-class EcgDataset(Dataset):
+class EcgDataPredict(Dataset):
     """ECG dataset."""
 
-    def __init__(self, csv_file, root_dir, transform=None):
+    def __init__(self, ecg_leads, ecg_names, transform):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
             root_dir (string): Directory with all the signals.
             transform (callable, optional): Optional transform to be applied on a sample.
         """
-        self.ecg_frame = pd.read_csv(csv_file)
+        self.ecg_leads = ecg_leads
+        self.ecg_names = ecg_names
+        self.transform = transform
+        self.classes = ['N', 'A', 'O', '~']
+
+    def __len__(self):
+        return len(self.ecg_names)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        signal = self.ecg_leads[idx]
+        signal = signal.reshape(1, -1)
+        name = self.ecg_names[idx]
+
+        signal = self.transform(signal)
+
+        return signal, name
+
+
+class EcgDataset(Dataset):
+    """ECG dataset."""
+
+    def __init__(self, csv_file, root_dir, transform=None, train=True):
+        """
+        Args:
+            csv_file (string): Path to the csv file with annotations.
+            root_dir (string): Directory with all the signals.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        self.ecg_frame = pd.read_csv(csv_file, header=None)
         self.root_dir = root_dir
         self.transform = transform
+        self.train = train
         self.classes = ['N', 'A', 'O', '~']
 
     def __len__(self):
@@ -96,7 +128,10 @@ class EcgDataset(Dataset):
         label = self.ecg_frame.iloc[idx, 1]
         target = self.classes.index(label)
 
-        if self.transform:
-            signal = self.transform(signal)
+        if self.train:
+            signal = self.transform[0](signal)
+        else:
+            signal = self.transform[1](signal)
 
         return signal, target
+
