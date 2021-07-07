@@ -3,6 +3,8 @@
 # date: 2021
 # author: AllChooseC
 
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import numpy as np
 

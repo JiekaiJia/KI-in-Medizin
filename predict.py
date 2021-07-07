@@ -20,7 +20,8 @@ from models import Cnn2018
 from transforms import (
     ToSpectrogram,
     Rescale,
-    ToTensor
+    ToTensor,
+    Normalize
 )
 from utils import (
     DeviceDataLoader,
@@ -56,13 +57,13 @@ def predict_labels(ecg_leads,fs,ecg_names,use_pretrained=False):
     batch_size = 32
     model_names = []
     for i in range(1):
-        if os.path.exists('./models/cnn2018_params2017_5.pth'):
-            model_names.append('./models/cnn2018_params2017_5.pth')
+        if os.path.exists('./models/cnn2018_paramsN_1.pth'):
+            model_names.append('./models/cnn2018_paramsN_1.pth')
     classes = ['N', 'A', 'O', '~']
     device = get_default_device()
     if use_pretrained:
         for i in range(1):
-            model_names.append('./models/cnn2018_params2017_1.pth')
+            model_names.append('./models/cnn2018_paramsN_1.pth')
     # Load the best model
     models = [Cnn2018() for _ in range(1)]
     for idx, model in enumerate(models):
@@ -80,6 +81,7 @@ def predict_labels(ecg_leads,fs,ecg_names,use_pretrained=False):
             max_len = sig_len
 
     basic = transforms.Compose([
+        Normalize(),
         Rescale(max_len),
         ToSpectrogram(nperseg=64, noverlap=32),
         ToTensor()

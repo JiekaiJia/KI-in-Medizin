@@ -70,7 +70,7 @@ def fit(epochs, trial, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=
         opt = torch.optim.SGD
     opt = opt(model.parameters(), lr=lr)
 
-    early_stopping = EarlyStopping(patience=70, mode='max')
+    early_stopping = EarlyStopping(patience=500, mode='max')
     for epoch in range(epochs):
         train_loss = 0
         train_metric = 0
@@ -89,20 +89,20 @@ def fit(epochs, trial, lr, model, loss_func, train_dl, vld_dl, metric=None, opt=
         train_metrics.append(train_metric)
 
         # Write results into file.
-        with SummaryWriter(f'./results/Fold2017_{trial}') as writer:
+        with SummaryWriter(f'./results/FoldN_{trial}') as writer:
             writer.add_scalar('train_loss', train_loss, global_step=epoch)
             writer.add_scalar('train_metric', train_metric, global_step=epoch)
             writer.add_scalar('vld_loss', vld_loss, global_step=epoch)
             writer.add_scalar('vld_metric', vld_metric, global_step=epoch)
 
         # Check point
-        if epoch > 2:
+        if epoch > 20:
             if pre_vld_metric < vld_metric:
                 print(f'The validation {metric.__name__} was improved from {pre_vld_metric:.4f} to {vld_metric:.4f}.')
                 pre_vld_metric = vld_metric
                 if not os.path.exists('./models'):
                     os.mkdir('./models')
-                torch.save(model.state_dict(), f'./models/cnn2018_params2017_{trial}.pth')
+                torch.save(model.state_dict(), f'./models/cnn2018_paramsN_{trial}.pth')
             else:
                 print(f"The validation {metric.__name__} wasn't improved.")
 

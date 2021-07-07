@@ -74,7 +74,7 @@ def split_indices(n, vld_pct, labels, compensation_factor, random_state=None):
 
 def get_data_loader(train_dataset, vld_dataset, batch_size, onehot_labels, compensation_factor):
     """This function generate the batch data for every epoch."""
-    train_indices, vld_indices = split_indices(len(train_dataset), 0.2, onehot_labels, compensation_factor, random_state=2021)
+    train_indices, vld_indices = split_indices(len(train_dataset), 0, onehot_labels, compensation_factor, random_state=2021)
     train_lds = []
     vld_lds = []
     for train_idx, vld_idx in zip(train_indices, vld_indices):

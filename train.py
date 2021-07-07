@@ -6,6 +6,7 @@
 
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -24,7 +25,8 @@ from transforms import (
     ToSpectrogram,
     RandomResample,
     Rescale,
-    ToTensor
+    ToTensor,
+    Normalize
 )
 from utils import (
     DeviceDataLoader,
@@ -33,13 +35,16 @@ from utils import (
     load_model,
     to_device,
 )
+from sklearn.preprocessing import normalize
+from visualization import display_signal,display_spectrogram
 
 
 if __name__ == '__main__':
     # Read data as dataframe
     data_df = read_data(
         zip_path='training.zip',
-        data_path='../training'
+        data_path='../training',
+        # data_path='../test_examples',
     )
     num_signals = len(data_df)
     labels = data_df['label'].tolist()
@@ -57,11 +62,13 @@ if __name__ == '__main__':
     max_len, min_len = max_min_length(data_df)
     # Define the data transform
     basic = transforms.Compose([
+        Normalize(),
         Rescale(max_len),
         ToSpectrogram(nperseg=64, noverlap=32),
         ToTensor()
     ])
     augment = transforms.Compose([
+        Normalize(),
         DropoutBursts(threshold=2, depth=10),
         RandomResample(),
         Rescale(max_len),
@@ -73,14 +80,28 @@ if __name__ == '__main__':
     train_dataset = EcgDataset(
         csv_file='../training/REFERENCE.csv',
         root_dir='../training',
+        # csv_file='../test_examples/REFERENCE.csv',
+        # root_dir='../test_examples',
         transform=composed,
     )
     vld_dataset = EcgDataset(
         csv_file='../training/REFERENCE.csv',
         root_dir='../training',
+        # csv_file='../test_examples/REFERENCE.csv',
+        # root_dir='../test_examples',
         transform=composed,
         train=False
     )
+    # from torch.utils.data.dataloader import DataLoader
+    # mm = DataLoader(vld_dataset, 1)
+    # model = Cnn2018()
+    # model = load_model(model, f'./models/cnn2018_paramsN_1.pth', evaluation=True)
+    # # Print the best model's results
+    # report(model,mm)
+    #
+    # import sys
+    # sys.exit(1)
+
     # Split dataset into train dataset and test dataset
     compensation_factor = 0.2
     batch_size = 32
@@ -96,7 +117,7 @@ if __name__ == '__main__':
 
     num_epochs = 500
     opt_fn = torch.optim.Adam
-    lr = 1e-5
+    lr = 1e-3
     # Train the model
     trial = 0
     train_with_pre = True
@@ -125,7 +146,7 @@ if __name__ == '__main__':
 
         # Load the best model
         model = Cnn2018()
-        model = load_model(model, f'./models/cnn2018_params2017_{trial}.pth', evaluation=True)
+        model = load_model(model, f'./models/cnn2018_paramsN_{trial}.pth', evaluation=True)
         to_device(model, device)
         # Print the best model's results
         report(model, vld_loader)

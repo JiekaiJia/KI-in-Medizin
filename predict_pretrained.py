@@ -20,7 +20,7 @@ import time
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Predict given Model')
-    parser.add_argument('--test_dir', action='store',type=str,default='../test/')
+    parser.add_argument('--test_dir', action='store', type=str,default='../test/')
     args = parser.parse_args()
     
     ecg_leads,ecg_labels,fs,ecg_names = load_references(args.test_dir) # Importiere EKG-Dateien, zugehörige Diagnose, Sampling-Frequenz (Hz) und Name                                                # Sampling-Frequenz 300 Hz
@@ -30,4 +30,4 @@ if __name__ == '__main__':
     pred_time = time.time()-start_time
     
     save_predictions(predictions) # speichert Prädiktion in CSV Datei
-    print("Runtime",pred_time,"s")
+    print("Runtime", pred_time, "s")

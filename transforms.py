@@ -6,6 +6,7 @@
 import numpy as np
 import scipy as sc
 from scipy import signal
+from sklearn.preprocessing import normalize
 import torch
 
 
@@ -131,6 +132,16 @@ class RandomResample(object):
         sig = _stretch_squeeze(data, new_length)
         sig = _fit_to_length(sig, shape[1])
         sig = sig.reshape(1, -1)
+        return sig
+
+
+class Normalize(object):
+    """
+    """
+    def __call__(self, data):
+        sig = normalize(data)*100
+        mean_sig = np.mean(sig)
+        sig = sig - mean_sig
         return sig
 
 # from data_preprocessing import read_data
