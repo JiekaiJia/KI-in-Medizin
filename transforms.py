@@ -144,23 +144,3 @@ class Normalize(object):
         sig = sig - mean_sig
         return sig
 
-# from data_preprocessing import read_data
-# data_df = read_data(zip_path='../data/training.zip', data_path='../data/raw_data')
-# f, t, Sxx = signal.spectrogram(
-#     data_df.iloc[1000, 0],
-#     fs=300,
-#     nperseg=64,
-#     noverlap=32
-# )
-# print(Sxx.shape)
-# Sxx = np.transpose(Sxx, [0, 2, 1])
-# print(Sxx)
-# Sxx = abs(Sxx)
-# mask = Sxx > 0
-# Sxx[mask] = np.log(Sxx[mask])
-# plt.pcolormesh(t, f, Sxx, shading='gouraud')
-# plt.ylabel('Frequency [Hz]')
-# plt.xlabel('Time [sec]')
-# plt.show()
-
-

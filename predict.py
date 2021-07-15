@@ -73,13 +73,7 @@ def predict_labels(ecg_leads,fs,ecg_names,use_pretrained=False):
     # models.reverse()
 
     num_signals = len(ecg_leads)
-    max_len = -1000000000
-    # search the max and min length of ECG signal
-    for i in range(num_signals):
-        sig_len = len(ecg_leads[i])
-        if sig_len > max_len:
-            max_len = sig_len
-
+    max_len = 35400
     basic = transforms.Compose([
         Normalize(),
         Rescale(max_len),
